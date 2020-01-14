@@ -7,13 +7,13 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/diamondburned/discordgo"
 	"github.com/go-ini/ini"
 )
 
 var dg *discordgo.Session
 var cfg struct {
-	GuildID string
+	GuildID int64
 	Token   string
 }
 
@@ -27,17 +27,26 @@ func main() {
 		log.Fatalln("Failed to parse login.ini:", err)
 	}
 
-	dg, err = discordgo.New(cfg.Token)
+	dg, err = discordgo.New(discordgo.Login{
+		Token: cfg.Token,
+	})
 	if err != nil {
 		log.Fatalln("Failed to create new Discord:", err)
 	}
 
+	g, err := dg.Guild(cfg.GuildID)
+	if err != nil {
+		log.Fatalln("Failed to get guild:", err)
+	}
+
+	log.Println("Listening to", g.Name)
+
 	dg.AddHandler(func(_ *discordgo.Session, m *discordgo.MessageCreate) {
-		if m.GuildID != cfg.Token {
+		if m.GuildID != cfg.GuildID {
 			return
 		}
 
-		log.Print("OK")
+		log.Println("OK", m.Content)
 	})
 
 	if err = dg.Open(); err != nil {
@@ -46,13 +55,7 @@ func main() {
 
 	defer dg.Close()
 
-	if err := dg.SubscribeGuild(discordgo.SubscribeGuildData{
-		GuildID:    cfg.GuildID,
-		Typing:     false,
-		Activities: true,
-	}); err != nil {
-		log.Fatalln("Failed to subscribe to guild ID:", err)
-	}
+	dg.GatewayManager.SubscribeGuild(cfg.GuildID, true, true)
 
 	fmt.Println("The bot is running")
 
